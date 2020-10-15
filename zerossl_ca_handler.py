@@ -254,6 +254,10 @@ class CAhandler(object):
                     # in PEM format
                     cert_bundle = result["ca_bundle.crt"]
                     cert_pem = result["certificate.crt"]
+                    # tbh, don't know why to repeat, but chaining only cert_pem + bundle didn't work
+                    # with certbot as a client, it fails with:
+                    # "failed to parse fullchain into cert and chain: less than 2 certificates in chain"
+                    cert_bundle = "\n".join([cert_pem, cert_bundle, cert_bundle])
                     # cert as OpenSSL.crypto.X509
                     cert = crypto.X509.from_cryptography(load_pem_x509_certificate(convert_string_to_byte(cert_pem)))
                     # convert to raw cert as needed by caller
