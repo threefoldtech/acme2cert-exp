@@ -45,6 +45,12 @@ List of changes:
 * generated keys and certificates to run the [openssl ca handler](https://github.com/grindsa/acme2certifier/blob/master/docs/openssl.md) at [acme_ca](/acme_ca) and added the configuration for it at [acme_srv.conf](/acme/acme_srv.cfg#L20).
 * used virtualenv and generated `requirements.txt` to be easier to install and run the server without complex setup.
 
-Work on progress:
+ZeroSSL.com certifier (WIP):
 
-* adding a ca handler implementation which gets certs via zerossl rest api.
+* adding a ca handler implementation (`zerossl_ca_handler.py`) which gets certs via zerossl rest api, also a coredns redis tool (from js-sdk).
+* validation is done via cname records (coredns with redis plugin setup)
+* TODO: :
+  * document coredns setup (also required managed domain DNS records)
+  * document server config (acme_srv.cfg)
+  * document client (e.g. certbot) commands used
+  * test deployment with another server than the development one (e.g. gunicorn + nginx)
