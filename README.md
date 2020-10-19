@@ -87,7 +87,7 @@ make
 chmod +x coredns
 ```
 
-An example configuration (Corefile), make sure it points to the redis host/port as the ACME server [configuration](configuring-the-server):
+An example configuration (Corefile), make sure it points to the redis host/port as the ACME server [configuration](#configuring-the-server):
 
 ```conf
 . {
