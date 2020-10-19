@@ -81,7 +81,7 @@ To configure the ACME server with ZeroSSL handler, `acme_srv.cfg` need to be pla
 handler_file: zerossl_ca_handler.py
 cert_validity_days: 90
 zerossl_access_key: "<zerossl api access key>"
-coredns_domain: "4bots.grid.tf"
+coredns_domain: "3bots.grid.tf"
 coredns_redis_host: "localhost"
 coredns_redis_port: 6379
 ```
@@ -104,14 +104,16 @@ chmod +x coredns
 An example configuration (Corefile), make sure it points to the redis host/port as the ACME server [configuration](#configuring-the-server):
 
 ```conf
-. {
+ . {
     redis {
         address 127.0.0.1:6379
     }
     log
     errors
 
-    forward zerossl.com 8.8.8.8 1.1.1.1
+    forward . 8.8.8.8 1.1.1.1 {
+        except 3bots.grid.tf
+    }
 
 }
 ```
