@@ -1,4 +1,16 @@
 # tf-acmeserver
+- [tf-acmeserver](#tf-acmeserver)
+  - [Setup](#setup)
+    - [Configuration](#configuration)
+  - [Installation](#installation)
+  - [Running the development server](#running-the-development-server)
+  - [Configuring the server](#configuring-the-server)
+  - [Building and configuration of CoreDNS](#building-and-configuration-of-coredns)
+  - [Deployment](#deployment)
+  - [Testing with certbot (client)](#testing-with-certbot-client)
+  - [What's different from acme2certifier?:](#whats-different-from-acme2certifier)
+    - [List of changes:](#list-of-changes)
+
 
 ACME to ZeroSSL.com REST API, based on [acme2certifier](https://github.com/grindsa/acme2certifier).
 
@@ -27,7 +39,7 @@ The full **flow** is as follows:
 1 - [CoreDNS with redis plugin](#building-and-configuration-of-coredns): as a name server for this domain with A and NS records point to it, example:
   * A ns1-3bots.example.com
   * NS 3bots.example.com -> ns1-3bots.example.com
-  
+
  The same goal can be achived by configuring another `CoreDNS` which manages this domain to forward `CNAME` requests to this server.
 
 2 - [This ACME server configured with](#configuring-the-server):
