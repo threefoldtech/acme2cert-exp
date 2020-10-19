@@ -17,7 +17,7 @@ The full **flow** is as follows:
 * Clients (e.g certbot) sends a request to the ACME server
 * The custom CA handler with the ACME server will:
   * Take the client's CSR and [creates a new certificate](https://zerossl.com/documentation/api/create-certificate/).
-  * Register the DNS challenge returned from the previous step in `cname_validation_p1` and `cname_validation_p2` fields as a `CNAME` record in redis (the same redis `CoreDNS` reads zone data from.
+  * Register the DNS challenge returned from the previous step in `cname_validation_p1` and `cname_validation_p2` fields as a `CNAME` record in redis (the same redis `CoreDNS` reads zone data from).
   * Ask ZeroSSL to [verify the domains](https://zerossl.com/documentation/api/verify-domains/), and waits for the result
   * If the verification is done, it will wait for the certificate to be issued for sometime, by [polling the certificate information](https://zerossl.com/documentation/api/get-certificate/) and checking for the `status`.
   * If the certificate is issued successfully, it will be returned to the user.
@@ -27,6 +27,8 @@ The full **flow** is as follows:
 1 - [CoreDNS with redis plugin](#building-and-configuration-of-coredns): as a name server for this domain with A and NS records point to it, example:
   * A ns1-3bots.example.com
   * NS 3bots.example.com -> ns1-3bots.example.com
+  
+ The same goal can be achived by configuring another `CoreDNS` which manages this domain to forward `CNAME` requests to this server.
 
 2 - [This ACME server configured with](#configuring-the-server):
   * Current domain being managed (e.g 3bots.example.com)
