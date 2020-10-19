@@ -122,7 +122,7 @@ Nearly all code is from acme2certifier repository, with acme implementation with
 ### List of changes:
 
 * Copied django [db_handler.py](https://github.com/grindsa/acme2certifier/blob/master/examples/db_handler/django_handler.py) inside [acme](/acme) as `db_handler`.
-* rename the django app module [acme](https://github.com/grindsa/acme2certifier/tree/master/examples/django/acme) to be `app` inn all relevant places to avoid import conflicts with acme implementation module.
+* Renamed the django app module [acme](https://github.com/grindsa/acme2certifier/tree/master/examples/django/acme) to be `app` inn all relevant places to avoid import conflicts with acme implementation module.
 * Updated [settings.py](/acme2certifier/settings.py) of django app to work with sqlite database instead of mysql.
 * Generated keys and certificates to run the [openssl ca handler](https://github.com/grindsa/acme2certifier/blob/master/docs/openssl.md) at [acme_ca](/acme_ca) and added the configuration for it at [acme_srv.conf](/acme/acme_srv.cfg#L20).
 * Used virtualenv and generated `requirements.txt` to be easier to install and run the server without complex setup.
