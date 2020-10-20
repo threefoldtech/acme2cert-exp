@@ -496,7 +496,7 @@ def signature_check(logger, message, pub_key):
 
 def fqdn_resolve(host, dnssrv=None):
     """ dns resolver """
-    req = dns.resolver.Resolver()
+    req = dns.resolver.Resolver(configure=False)
 
     # hack to cover github workflows
     if '.' in host:
@@ -589,7 +589,7 @@ def url_get(logger, url, dns_server_list=None):
                 urllib3_cn.allowed_gai_family = allowed_gai_family
                 req = requests.get(url, headers={'Connection':'close', 'Accept-Encoding': 'gzip', 'User-Agent': 'acme2certifier/{0}'.format(__version__)})
                 result = req.text
-                print(result)                
+                print(result)
             except BaseException as err_:
                 result = None
                 logger.error('url_get error: {0}'.format(err_))
