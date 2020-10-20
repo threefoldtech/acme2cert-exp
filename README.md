@@ -151,7 +151,7 @@ Also, `gunicorn` should run behind nginx, see [deploying gunicorn](https://docs.
 
 ### Docker
 
-We will try to create a full docker setup for this server and the database engine, `coredns` and `redis`.
+We will try to create a full docker setup for this server, database engine, `coredns` and `redis`.
 
 ## Testing with certbot (client)
 
