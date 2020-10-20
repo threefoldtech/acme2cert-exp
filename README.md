@@ -7,6 +7,9 @@
   - [Configuring the server](#configuring-the-server)
   - [Building and configuration of CoreDNS](#building-and-configuration-of-coredns)
   - [Deployment](#deployment)
+    - [Django settings](#django-settings)
+    - [Gunicorn and nginx](#gunicorn-and-nginx)
+    - [Docker](#docker)
   - [Testing with certbot (client)](#testing-with-certbot-client)
   - [What's different from acme2certifier?:](#whats-different-from-acme2certifier)
     - [List of changes:](#list-of-changes)
@@ -65,11 +68,17 @@ python3 django_update.py
 
 ## Running the development server
 
-```
-python3 manage.py runserver
+Server is configured by `acme_srv.conf` configuration file in the [acme](/acme) directory, before starting, check current example files at [config](/config) directory, you can copy any of them:
+
+```bash
+cp config/acme_srv.zerossl.cfg acme/acme_srv.cfg
 ```
 
-Server is configured by [acme_srv.conf](/acme/acme_srv.cfg), domain validation is disabled for now.
+Then update it with [correct configuration](#configuring-the-server) and start the development server as:
+
+```bash
+python3 manage.py runserver
+```
 
 ## Configuring the server
 
@@ -120,7 +129,29 @@ An example configuration (Corefile), make sure it points to the redis host/port 
 
 ## Deployment
 
-WIP
+### Django settings
+
+First, you need to have a [django settings.py](/acme2certifier/settings.py) for production, it should be configured with other databases than `sqlite` in `DATABASES`, e.g. `mysql`. Also `ALLOWED_HOSTS` need to include all possible hosts.
+
+To use a production settings module in e.g. `acme2certifier/production_settings.py`, just set it in `DJANGO_SETTINGS_MODULE` like:
+
+```
+export DJANGO_SETTINGS_MODULE=acme2certifier.production_settings
+```
+
+### Gunicorn and nginx
+
+It's better to use [gunicorn](https://docs.gunicorn.org/) to run the server for production environments, with other options, you just need to pass the `wsgi` app as:
+
+```bash
+gunicorn acme2certifier.wsgi #...other options
+```
+
+Also, `gunicorn` should run behind nginx, see [deploying gunicorn](https://docs.gunicorn.org/en/stable/deploy.html) for more details about the setup and configuration.
+
+### Docker
+
+We will try to create a full docker setup for this server and the database engine, `coredns` and `redis`.
 
 ## Testing with certbot (client)
 
