@@ -17,7 +17,7 @@
 
 ACME to ZeroSSL.com REST API, based on [acme2certifier](https://github.com/grindsa/acme2certifier).
 
-This server will enable normal ACME clients to issue certificates from non-acme servers, the main goal is to issue certificates from ZeroSSL (via REST AIP) for normal ACME clients. This will enable us to have ZeroSSL account key under one place, instead of distributing it to all clients.
+This server will enable normal ACME clients to issue certificates from non-acme servers, the main goal is to issue certificates from ZeroSSL (via REST API) for normal ACME clients. This will enable us to have ZeroSSL account key under one place, instead of distributing it to all clients.
 
 ## Setup
 
