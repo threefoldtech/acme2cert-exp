@@ -89,9 +89,9 @@ To configure the ACME server with ZeroSSL handler, `acme_srv.cfg` need to be pla
 # CA specific options
 handler_file: zerossl_ca_handler.py
 cert_validity_days: 90
-zerossl_access_key: "<zerossl api access key>"
-coredns_domain: "3bots.grid.tf"
-coredns_redis_host: "localhost"
+zerossl_access_key: <zerossl api access key>
+coredns_domain: 3bots.grid.tf
+coredns_redis_host: localhost
 coredns_redis_port: 6379
 ```
 
