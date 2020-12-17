@@ -11,8 +11,8 @@
     - [Gunicorn and nginx](#gunicorn-and-nginx)
     - [Docker](#docker)
   - [Testing with certbot (client)](#testing-with-certbot-client)
-  - [What's different from acme2certifier?:](#whats-different-from-acme2certifier)
-    - [List of changes:](#list-of-changes)
+  - [What's different from acme2certifier?](#whats-different-from-acme2certifier)
+    - [List of changes](#list-of-changes)
 
 
 ACME to ZeroSSL.com REST API, based on [acme2certifier](https://github.com/grindsa/acme2certifier).
@@ -21,7 +21,7 @@ This server will enable normal ACME clients to issue certificates from non-acme 
 
 ## Setup
 
-Because ACME and ZeroSSL.com require domain verification, a custom setup need to be set with a name server (CoreDNS is used here).
+Because ACME and ZeroSSL.com require domain verification, a custom setup need to be set with a name server (CoreDNS or name.com API).
 
 ![diagram](diagram/block.png)
 
@@ -32,24 +32,28 @@ The full **flow** is as follows:
 * Clients (e.g certbot) sends a request to the ACME server
 * The custom CA handler with the ACME server will:
   * Take the client's CSR and [creates a new certificate](https://zerossl.com/documentation/api/create-certificate/).
-  * Register the DNS challenge returned from the previous step in `cname_validation_p1` and `cname_validation_p2` fields as a `CNAME` record in redis (the same redis `CoreDNS` reads zone data from).
-  * Ask ZeroSSL to [verify the domains](https://zerossl.com/documentation/api/verify-domains/), and waits for the result
+  * Register the DNS challenge returned from the previous step in `cname_validation_p1` and `cname_validation_p2` fields as a `CNAME` record.
+  * Ask ZeroSSL to [verify the domains](https://zerossl.com/documentation/api/verify-domains/), and waits for the result.
   * If the verification is done, it will wait for the certificate to be issued for sometime, by [polling the certificate information](https://zerossl.com/documentation/api/get-certificate/) and checking for the `status`.
   * If the certificate is issued successfully, it will be returned to the user.
 
 ### Configuration
 
-1 - [CoreDNS with redis plugin](#building-and-configuration-of-coredns): as a name server for this domain with A and NS records point to it, example:
-  * A ns1-3bots.example.com
-  * NS 3bots.example.com -> ns1-3bots.example.com
+1 - [Name server](#nameserver): zerossl.com needs to verify domains, we need access to name server where we can register required DNS records.
 
- The same goal can be achived by configuring another `CoreDNS` which manages this domain to forward `CNAME` requests to this server.
+The following options are available:
+
+* name.com
+* [coredns](#building-and-configuration-of-coredns) with ns records points to it, for example for verifying domains under `3bots.example.com`, we setup the following records
+  * `A`: ns1-3bots.example.com
+  * `NS`: 3bots.example.com -> ns1-3bots.example.com
+
+  The same goal can be achived by configuring another `CoreDNS` which manages this domain to forward `CNAME` requests to this server.
 
 2 - [This ACME server configured with](#configuring-the-server):
-  * Current domain being managed (e.g 3bots.example.com)
-  * Redis server configuration (which CoreDNS will read zone data from)
+  * Current domains and prefixes
+  * name.com or coredns client configurations
   * ZeroSSL access key
-
 
 ## Installation
 
@@ -82,21 +86,37 @@ python3 manage.py runserver
 
 ## Configuring the server
 
-To configure the ACME server with ZeroSSL handler, `acme_srv.cfg` need to be placed into [acme](/acme) directory with the `CAHandler` section contains all relevant information:
+To configure the ACME server with ZeroSSL handler, `acme_srv.cfg` need to be placed into [acme](/acme) directory with the the following sections:
 
 ```conf
 [CAhandler]
 # CA specific options
 handler_file: zerossl_ca_handler.py
 cert_validity_days: 90
-zerossl_access_key: <zerossl api access key>
-coredns_domain: 3bots.grid.tf
-coredns_redis_host: localhost
-coredns_redis_port: 6379
+access_key: <zerossl api access key>
+
+[domains]
+grid.tf: test1, test2
+
+[namecom]
+username: foo
+token: bar
+
+[coredns]
+host: localhost
+port: 6379
 ```
 
-See [acme_srv_zerossl.cf](/config/acme_srv.zerossl.cfg) for full configuration example.
+Sections:
+* `domains` (required): allowed domains and prexies (comma separated).
+* `namecom` (optional): name.com API credentials
+* `coredns` (optional): coredns redis configuration (will be ignored if `namecom` is configured)
 
+Either `namecom` or `coredns` must be configured in order to verify domains.
+
+If `dev` flag is used with `namecom`, it will use [development api endpoints](https://www.name.com/api-docs).
+
+See [acme_srv_zerossl.cf](/config/acme_srv.zerossl.cfg) for full configuration example.
 
 ## Building and configuration of CoreDNS
 
@@ -162,11 +182,11 @@ certbot certonly --server http://127.0.0.1:8000/ --standalone -d tt.example.com 
 ```
 
 
-## What's different from acme2certifier?:
+## What's different from acme2certifier?
 
 Nearly all code is from acme2certifier repository, with acme implementation with django database store (db_handler)  + django server and scripts, all in one place for the ease of development/experimenting.
 
-### List of changes:
+### List of changes
 
 * Copied django [db_handler.py](https://github.com/grindsa/acme2certifier/blob/master/examples/db_handler/django_handler.py) inside [acme](/acme) as `db_handler`.
 * Renamed the django app module [acme](https://github.com/grindsa/acme2certifier/tree/master/examples/django/acme) to be `app` inn all relevant places to avoid import conflicts with acme implementation module.
