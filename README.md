@@ -108,7 +108,8 @@ port: 6379
 ```
 
 Sections:
-* `domains` (required): allowed domains and prexies (comma separated).
+* `domains` (required): allowed domains and prefixes (hosts) (comma separated).
+  * For example, `grid.tf: test1, test2` will allow issuing certificate for subdomains of `test1.grid.tf` and `test2.grid.tf`, e.g. `a.test1.grid.tf`, `xyz.test2.grid.tf`.
 * `namecom` (optional): name.com API credentials
 * `coredns` (optional): coredns redis configuration (will be ignored if `namecom` is configured)
 
