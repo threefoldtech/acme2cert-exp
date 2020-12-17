@@ -17,7 +17,7 @@ from OpenSSL import crypto
 from cryptography.x509 import load_pem_x509_certificate
 
 from acme.helper import convert_byte_to_string, convert_string_to_byte, csr_cn_get, csr_san_get, load_config
-from coredns import CoreDNS
+from dnsclient import Client, ClientType, Domain, DnsConfigError
 
 
 class ChallengeType(Enum):
@@ -117,6 +117,51 @@ class ZeroSSL:
         return self.request(url, method="post", data=data)
 
 
+class ConfigError(Exception):
+    pass
+
+
+def get_domain_config(config):
+    """
+    get domains from config
+
+    Args:
+        configparser (ConfigParser): config parser
+
+    Returns:
+        list of Domain
+    """
+    if "domains" not in config:
+        raise ConfigError("domains config is missing")
+
+    domains = []
+    for name, prefixes in config["domains"].items():
+        if name in config.defaults():
+            continue
+        allowed_prefixes = [prefix.lower().strip() for prefix in prefixes.split(",")]
+        domains.append(Domain(name.lower().strip(), allowed_prefixes))
+    return domains
+
+
+def get_dns_options(config):
+    """
+    get dns options for suppored dns clients (e.g. coredns or namecom)
+
+    Args:
+        config (ConfigParser): config parser
+
+    Returns:
+        dict: dns options
+    """
+    options = {}
+
+    for client_type in ClientType:
+        name = client_type.value
+        if name in config.sections():
+            options[name] = config[name]
+
+    return options
+
 class CAhandler(object):
     """ZeroSSL CA handler"""
 
@@ -124,21 +169,21 @@ class CAhandler(object):
         self.debug = debug
         self.logger = logger
 
-        config = load_config(self.logger, 'CAhandler')['CAhandler']
+        config = load_config(self.logger)['CAhandler']
         self.certificate_validity_days = config.get("cert_validity_days")
-        self.access_key = config.get("zerossl_access_key")
-        self.coredns_domain = config.get("coredns_domain")
-        self.coredns_redis_host = config.get("coredns_redis_host")
-        self.coredns_redis_port = config.get("coredns_redis_port")
-        self.coredns_redis_password = config.get("coredns_redis_password")
-
+        self.access_key = config.get("access_key")
+        self.domains = get_domain_config(config)
+        self.dns_options = get_dns_options(config)
         self.zerossl = ZeroSSL(self.access_key)
-        self.coredns = CoreDNS.from_redis(
-            domain=self.coredns_domain,
-            host=self.coredns_redis_host,
-            port=self.coredns_redis_port,
-            password=self.coredns_redis_password
-        )
+
+        if ClientType.NAMECOM.value in self.dns_options:
+            client_type = ClientType.NAMECOM
+        elif ClientType.COREDNS.value in self.dns_options:
+            client_type = ClientType.COREDNS
+        else:
+            raise DnsConfigError("no dns client is configured (e.g namecom or coredns)")
+
+        self.dns_client = Client(client_type, self.domains, self.dns_options)
 
     def __enter__(self):
         return self
@@ -159,8 +204,7 @@ class CAhandler(object):
         return names
 
     def check_domain(self, domain):
-        if self.coredns_domain.lower() not in domain.lower():
-            raise ValueError(f"{domain} is not managed by {self.coredns_domain}")
+        pass
 
     def create_dns_records(self, domain, points_to):
         self.check_domain(domain)
