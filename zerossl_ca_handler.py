@@ -169,9 +169,12 @@ class CAhandler(object):
         self.debug = debug
         self.logger = logger
 
-        config = load_config(self.logger)['CAhandler']
-        self.certificate_validity_days = config.get("cert_validity_days")
-        self.access_key = config.get("access_key")
+        config = load_config(self.logger)
+
+        handler_config = config['CAhandler']
+        self.certificate_validity_days = handler_config.get("cert_validity_days")
+        self.access_key = handler_config.get("access_key")
+
         self.domains = get_domain_config(config)
         self.dns_options = get_dns_options(config)
         self.zerossl = ZeroSSL(self.access_key)
@@ -271,9 +274,11 @@ class CAhandler(object):
                 for domain, validations in all_validations.items():
                     # put dns records
                     try:
-                        self.dns.create_cname_record(validations["cname_validation_p1"], validations["cname_validation_p2"])
+                        host, points_to = validations["cname_validation_p1"], validations["cname_validation_p2"]
+                        self.dns.create_cname_record(host, points_to)
                     except Exception as exc:
-                        error = f"error while registering dns records for {domain}: {exc}"
+                        import ipdb; ipdb.set_trace()
+                        error = f"error while registering dns records '{host} -> {points_to}' for {domain}: {exc}"
 
                 if not error:
                     # try verify the challenge
@@ -282,7 +287,7 @@ class CAhandler(object):
                         # cleanup cname records if ok
                         for domain, validations in all_validations.items():
                             try:
-                                self.dns.delete_cname_record(validations["cname_-validation_p1"])
+                                self.dns.delete_cname_record(validations["cname_validation_p1"])
                             except Exception as exc:
                                 error = f"error while dns records cleanup for {domain}: {exc}"
                     except Exception as exc:
