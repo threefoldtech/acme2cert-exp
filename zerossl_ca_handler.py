@@ -277,7 +277,6 @@ class CAhandler(object):
                         host, points_to = validations["cname_validation_p1"], validations["cname_validation_p2"]
                         self.dns.create_cname_record(host, points_to)
                     except Exception as exc:
-                        import ipdb; ipdb.set_trace()
                         error = f"error while registering dns records '{host} -> {points_to}' for {domain}: {exc}"
 
                 if not error:
