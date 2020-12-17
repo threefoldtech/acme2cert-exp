@@ -97,6 +97,8 @@ access_key: <zerossl api access key>
 
 [domains]
 grid.tf: test1, test2
+3bots.tf: testnet, devnet
+gateway.tf: gw1, gw2, gw3
 
 [namecom]
 username: foo
