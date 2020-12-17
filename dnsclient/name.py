@@ -25,8 +25,8 @@ class NameComClient:
         self.client = self.name_factory.get(self.username, self.token, self.debug)
 
     def create_cname_record(self, subdomain, prefix, points_to):
-        subdomain = f"{subdomain}.{prefix}".lower()
-        resp = self.client.create_record(self.domain, subdomain, "cname", points_to)
+        host = f"{subdomain}.{prefix}".lower()
+        resp = self.client.create_record(self.domain, host, "cname", points_to)
         return resp["id"]
 
     def delete_cname_record(self, subdomain, prefix):
