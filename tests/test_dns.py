@@ -1,4 +1,6 @@
+from os import environ
 from unittest import TestCase
+
 from dnsclient import Client, ClientType, Domain, DomainConfigError, PrefixIsNotAllowed
 
 
@@ -10,7 +12,7 @@ TEST_DOMAINS = [
 
 
 TEST_OPTIONS_COREDNS = {"coredns": {}}
-TEST_OPTIONS_NAMECOM = {"namecom": {"username": "test", "token": "test"}}
+TEST_OPTIONS_NAMECOM = {"namecom": {"username": environ.get("NAMECOM_USERNAME"), "token": environ.get("NAMECOM_TOKEN"), "debug": True}}
 TEST_SUBDOMAINS = ["a", "b", "c"]
 
 class DNSClientMixin:
@@ -45,12 +47,12 @@ class DNSClientMixin:
                     host = f"{subdomain}.{prefix}.{domain.name}"
                     self.client.delete_cname_record(host)
 
-class TestCoreDNS(TestCase, DNSClientMixin):
+class TestCoreDNS(DNSClientMixin, TestCase):
 
     def setUp(self):
         self.client = Client(ClientType.COREDNS, domains=TEST_DOMAINS, options=TEST_OPTIONS_COREDNS)
 
-class TestNameCom(TestCase, DNSClientMixin):
+class TestNameCom(DNSClientMixin, TestCase):
     def setUp(self):
         self.client = Client(ClientType.NAMECOM, domains=TEST_DOMAINS, options=TEST_OPTIONS_NAMECOM)
 

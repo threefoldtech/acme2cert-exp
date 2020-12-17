@@ -46,6 +46,9 @@ class Client:
 
         self.options = options
 
+    def is_same_zone(self, subdomain,  prefix):
+        return subdomain == prefix or subdomain.endswith(f".{prefix}")
+
     def verify(self, host):
         for domain in self.domains:
             name = domain.name
@@ -58,7 +61,7 @@ class Client:
                     # no prefix is provided
                     subdomain, prefix = subdomain_with_prefix, ""
 
-                if prefix not in domain.allowed_prefixes:
+                if not any([self.is_same_zone(prefix, allowed_prefix) for allowed_prefix in domain.allowed_prefixes]):
                     raise PrefixIsNotAllowed(f"'{prefix}' prefix is not allowed in '{name}' configuration")
                 return subdomain, prefix, domain
 
