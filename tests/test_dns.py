@@ -13,15 +13,7 @@ TEST_OPTIONS_COREDNS = {"coredns": {}}
 TEST_OPTIONS_NAMECOM = {"namecom": {"username": "test", "token": "test"}}
 TEST_SUBDOMAINS = ["a", "b", "c"]
 
-class TestCoreDNS(TestCase):
-
-    def setUp(self):
-        self.client = Client(ClientType.COREDNS, domains=TEST_DOMAINS, options=TEST_OPTIONS_COREDNS)
-
-    def test_select_client(self):
-        subdomain, prefix, _ = self.client.select("hello.test.grid.tf")
-        self.assertEqual(subdomain, "hello")
-        self.assertEqual(prefix, "test")
+class DNSClientMixin:
 
     def test_register_domain(self):
         # test domain checking
@@ -53,8 +45,12 @@ class TestCoreDNS(TestCase):
                     host = f"{subdomain}.{prefix}.{domain.name}"
                     self.client.delete_cname_record(host)
 
+class TestCoreDNS(TestCase, DNSClientMixin):
 
-class TestNameCom(TestCase):
     def setUp(self):
-        self.client = Client(ClientType.NAMECOM, domains=TEST_DOMAINS, options=TEST_OPTIONS_COREDNS)
+        self.client = Client(ClientType.COREDNS, domains=TEST_DOMAINS, options=TEST_OPTIONS_COREDNS)
+
+class TestNameCom(TestCase, DNSClientMixin):
+    def setUp(self):
+        self.client = Client(ClientType.NAMECOM, domains=TEST_DOMAINS, options=TEST_OPTIONS_NAMECOM)
 

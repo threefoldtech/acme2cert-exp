@@ -19,16 +19,17 @@ class NameComClient:
             raise ValueError("username and token need to be configured for name.com client")
 
         self.username = options["username"]
-        self.token = options["password"]
+        self.token = options["token"]
+        self.debug = options.get("debug", False)
 
-        self.client = self.name_factory.get(self.username, self.token)
+        self.client = self.name_factory.get(self.username, self.token, self.debug)
 
     def create_cname_record(self, subdomain, prefix, points_to):
-        subdomain = f"{subdomain}.{self.prefix}"
+        subdomain = f"{subdomain}.{prefix}"
         resp = self.client.create_record(self.domain, subdomain, "cname", points_to)
         return resp["id"]
 
     def delete_cname_record(self, subdomain, prefix):
-        subdomain = f"{subdomain}.{self.prefix}"
+        subdomain = f"{subdomain}.{prefix}"
         for record in self.client.list_records(self.domain, subdomain):
             self.client.delete_record(record["fqdn"][:-1], record["id"])
