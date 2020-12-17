@@ -3,7 +3,7 @@ from typing import List
 
 from .coredns import CoreDNS
 from .name import NameComClient
-
+from .exceptions import DnsConfigError, DomainConfigError, PrefixIsNotAllowed
 
 class ClientType(Enum):
     COREDNS = "coredns"
@@ -34,19 +34,6 @@ class Domain:
     __repr__ = __str__
 
 
-
-class DnsConfigError(Exception):
-    pass
-
-
-class DomainConfigError(DnsConfigError):
-    pass
-
-
-class PrefixIsNotAllowed(DomainConfigError):
-    pass
-
-
 class Client:
 
     def __init__(self, client_type, domains: List[Domain], options):
@@ -59,8 +46,8 @@ class Client:
 
         self.options = options
 
-    def select(self, host):
-        for domain, client in self.domain_clients.items():
+    def verify(self, host):
+        for domain in self.domains:
             name = domain.name
 
             if host.endswith(f".{name}"):
@@ -73,9 +60,13 @@ class Client:
 
                 if prefix not in domain.allowed_prefixes:
                     raise PrefixIsNotAllowed(f"'{prefix}' prefix is not allowed in '{name}' configuration")
-                return subdomain, prefix, client
+                return subdomain, prefix, domain
 
         raise DomainConfigError(f"main/parent domain of '{host}' is not configured")
+
+    def select(self, host):
+       subdomain, prefix, domain = self.verify(host)
+       return subdomain, prefix, self.domain_clients[domain]
 
     def create_cname_record(self, host, points_to):
         subdomain, prefix, client = self.select(host)

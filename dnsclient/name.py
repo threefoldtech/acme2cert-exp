@@ -1,7 +1,7 @@
 from namecom import Name
 
+from .exceptions import DnsConfigError
 from .helpers import Factory
-
 
 class NameFactory(Factory):
     def create(self, *args):
@@ -16,7 +16,7 @@ class NameComClient:
         options = options.get("namecom", {})
 
         if "username" not in options or "token" not in options:
-            raise ValueError("username and token need to be configured for name.com client")
+            raise DnsConfigError("username and token need to be configured for name.com dns client")
 
         self.username = options["username"]
         self.token = options["token"]

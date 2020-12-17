@@ -183,7 +183,7 @@ class CAhandler(object):
         else:
             raise DnsConfigError("no dns client is configured (e.g namecom or coredns)")
 
-        self.dns_client = Client(client_type, self.domains, self.dns_options)
+        self.dns = Client(client_type, self.domains, self.dns_options)
 
     def __enter__(self):
         return self
@@ -202,14 +202,6 @@ class CAhandler(object):
             names.append(item.split(":")[-1])
 
         return names
-
-    def check_domain(self, domain):
-        pass
-
-    def create_dns_records(self, domain, points_to):
-        self.check_domain(domain)
-        subdomain = domain.replace(f".{self.coredns_domain}", "").lower()
-        self.coredns.register_cname_record(subdomain, points_to)
 
     def try_verify_domain(self, cert_id, trials=4):
         details = {}
@@ -250,8 +242,13 @@ class CAhandler(object):
         cert_bundle = None
         cert_raw = None
 
-        # get domains from csr
+        # get domains from csr and verify they're configured and we can create dns records for them
         domains = self.get_domain_names(csr)
+        for domain in domains:
+            try:
+                self.dns.verify(domain)
+            except DnsConfigError as config_error:
+                return f"configuration error: {config_error}", cert_bundle, cert_raw, None
 
         # create certificate (csr must be 2048-bit encrypted)
         try:
@@ -274,7 +271,7 @@ class CAhandler(object):
                 for domain, validations in all_validations.items():
                     # put dns records
                     try:
-                        self.create_dns_records(validations["cname_validation_p1"], validations["cname_validation_p2"])
+                        self.dns.create_cname_record(validations["cname_validation_p1"], validations["cname_validation_p2"])
                     except Exception as exc:
                         error = f"error while registering dns records for {domain}: {exc}"
 
@@ -282,6 +279,12 @@ class CAhandler(object):
                     # try verify the challenge
                     try:
                         self.try_verify_domain(cert_id)
+                        # cleanup cname records if ok
+                        for domain, validations in all_validations.items():
+                            try:
+                                self.dns.delete_cname_record(validations["cname_-validation_p1"])
+                            except Exception as exc:
+                                error = f"error while dns records cleanup for {domain}: {exc}"
                     except Exception as exc:
                         error = f"could not verify the challenge for one of the domains: {exc}"
 
@@ -307,7 +310,7 @@ class CAhandler(object):
                     # convert to raw cert as needed by caller
                     cert_raw = convert_byte_to_string(base64.b64encode(crypto.dump_certificate(crypto.FILETYPE_ASN1, cert)))
 
-        return(error, cert_bundle, cert_raw, None)
+        return (error, cert_bundle, cert_raw, None)
 
 
     def poll(self, _cert_name, poll_identifier, _csr):
@@ -320,7 +323,7 @@ class CAhandler(object):
         rejected = False
 
         self.logger.debug('CAhandler.poll() ended')
-        return(error, cert_bundle, cert_raw, poll_identifier, rejected)
+        return (error, cert_bundle, cert_raw, poll_identifier, rejected)
 
     def revoke(self, cert, rev_reason='unspecified', rev_date=None):
         """ revoke certificate """
