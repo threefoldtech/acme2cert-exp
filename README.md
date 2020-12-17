@@ -72,7 +72,7 @@ python3 django_update.py
 
 ## Running the development server
 
-Server is configured by `acme_srv.conf` configuration file in the [acme](/acme) directory, before starting, check current example files at [config](/config) directory, you can copy any of them:
+Server is configured by `acme_srv.cfg` configuration file in the [acme](/acme) directory, before starting, check current example files at [config](/config) directory, you can copy any of them:
 
 ```bash
 cp config/acme_srv.zerossl.cfg acme/acme_srv.cfg
@@ -194,5 +194,5 @@ Nearly all code is from acme2certifier repository, with acme implementation with
 * Copied django [db_handler.py](https://github.com/grindsa/acme2certifier/blob/master/examples/db_handler/django_handler.py) inside [acme](/acme) as `db_handler`.
 * Renamed the django app module [acme](https://github.com/grindsa/acme2certifier/tree/master/examples/django/acme) to be `app` inn all relevant places to avoid import conflicts with acme implementation module.
 * Updated [settings.py](/acme2certifier/settings.py) of django app to work with sqlite database instead of mysql.
-* Generated keys and certificates to run the [openssl ca handler](https://github.com/grindsa/acme2certifier/blob/master/docs/openssl.md) at [acme_ca](/acme_ca) and added the configuration for it at [acme_srv.conf](/acme/acme_srv.cfg#L20).
+* Generated keys and certificates to run the [openssl ca handler](https://github.com/grindsa/acme2certifier/blob/master/docs/openssl.md) at [acme_ca](/acme_ca) and added the configuration for it in example configuration at [acme_srv.local_ssl.cfg](config/acme_srv.local_ssl.cfg).
 * Used virtualenv and generated `requirements.txt` to be easier to install and run the server without complex setup.
