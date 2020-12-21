@@ -204,7 +204,7 @@ class CAhandler(object):
         handler_config = config['CAhandler']
         self.certificate_validity_days = handler_config.get("cert_validity_days")
         self.access_key = handler_config.get("access_key")
-        self.include_gateway_domains = handler_config.get("include_gateway_domains", False)
+        self.include_gateway_domains = handler_config.getboolean("include_gateway_domains", False)
 
         self.domains = get_domain_config(config)
         if self.include_gateway_domains:
