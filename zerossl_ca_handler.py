@@ -20,6 +20,13 @@ from acme.helper import convert_byte_to_string, convert_string_to_byte, csr_cn_g
 from dnsclient import Client, ClientType, Domain, DnsConfigError
 
 
+EXPLORER_URLS = [
+    "https://explorer.grid.tf",
+    "https://explorer.testnet.grid.tf",
+    "https://explorer.devnet.grid.tf"
+]
+
+
 class ChallengeType(Enum):
     HTTP = "HTTPS_CSR_HASH"
     DNS = "CNAME_CSR_HASH"
@@ -143,6 +150,29 @@ def get_domain_config(config):
     return domains
 
 
+def get_gateway_domains(logger=None):
+    domains_with_prefixes = {}
+    for url in EXPLORER_URLS:
+        gateways_url = f"{url}/api/v1/gateways"
+
+        try:
+            gateways = requests.get(gateways_url).json()
+        except requests.HTTPError:
+            if logger:
+                logger.error(f"cannot get gateway information at #{gateway_url}")
+            gateways = []
+
+        for gateway in gateways:
+            for domain in gateway.get("managed_domains") or []:
+                parts = domain.split(".")
+                main_domain, prefix = ".".join(parts[-2:]), ".".join(parts[:-2])
+                domains_with_prefixes.setdefault(main_domain, [])
+                if prefix not in domains_with_prefixes[main_domain]:
+                    domains_with_prefixes[main_domain].append(prefix)
+
+    return [Domain(name, prefixes) for name, prefixes in domains_with_prefixes.items()]
+
+
 def get_dns_options(config):
     """
     get dns options for suppored dns clients (e.g. coredns or namecom)
@@ -174,8 +204,12 @@ class CAhandler(object):
         handler_config = config['CAhandler']
         self.certificate_validity_days = handler_config.get("cert_validity_days")
         self.access_key = handler_config.get("access_key")
+        self.include_gateway_domains = handler_config.get("include_gateway_domains", False)
 
         self.domains = get_domain_config(config)
+        if self.include_gateway_domains:
+            self.domains += get_gateway_domains(self.logger)
+
         self.dns_options = get_dns_options(config)
         self.zerossl = ZeroSSL(self.access_key)
 

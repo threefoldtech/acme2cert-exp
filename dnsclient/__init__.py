@@ -23,7 +23,7 @@ class Domain:
         self.allowed_prefixes = allowed_prefixes
 
     def __str__(self):
-        return self.name
+        return f"{self.__class__.__name__}(name='{self.name}', allowed_prefixes={self.allowed_prefixes})"
 
     def __eq__(self, other):
         return other.name == self.name
