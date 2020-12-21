@@ -17,7 +17,7 @@ from OpenSSL import crypto
 from cryptography.x509 import load_pem_x509_certificate
 
 from acme.helper import convert_byte_to_string, convert_string_to_byte, csr_cn_get, csr_san_get, load_config
-from coredns import CoreDNS
+from dnsclient import Client, ClientType, Domain, DnsConfigError
 
 
 class ChallengeType(Enum):
@@ -117,6 +117,51 @@ class ZeroSSL:
         return self.request(url, method="post", data=data)
 
 
+class ConfigError(Exception):
+    pass
+
+
+def get_domain_config(config):
+    """
+    get domains from config
+
+    Args:
+        configparser (ConfigParser): config parser
+
+    Returns:
+        list of Domain
+    """
+    if "domains" not in config:
+        raise ConfigError("domains config is missing")
+
+    domains = []
+    for name, prefixes in config["domains"].items():
+        if name in config.defaults():
+            continue
+        allowed_prefixes = [prefix.lower().strip() for prefix in prefixes.split(",")]
+        domains.append(Domain(name.lower().strip(), allowed_prefixes))
+    return domains
+
+
+def get_dns_options(config):
+    """
+    get dns options for suppored dns clients (e.g. coredns or namecom)
+
+    Args:
+        config (ConfigParser): config parser
+
+    Returns:
+        dict: dns options
+    """
+    options = {}
+
+    for client_type in ClientType:
+        name = client_type.value
+        if name in config.sections():
+            options[name] = config[name]
+
+    return options
+
 class CAhandler(object):
     """ZeroSSL CA handler"""
 
@@ -124,21 +169,24 @@ class CAhandler(object):
         self.debug = debug
         self.logger = logger
 
-        config = load_config(self.logger, 'CAhandler')['CAhandler']
-        self.certificate_validity_days = config.get("cert_validity_days")
-        self.access_key = config.get("zerossl_access_key")
-        self.coredns_domain = config.get("coredns_domain")
-        self.coredns_redis_host = config.get("coredns_redis_host")
-        self.coredns_redis_port = config.get("coredns_redis_port")
-        self.coredns_redis_password = config.get("coredns_redis_password")
+        config = load_config(self.logger)
 
+        handler_config = config['CAhandler']
+        self.certificate_validity_days = handler_config.get("cert_validity_days")
+        self.access_key = handler_config.get("access_key")
+
+        self.domains = get_domain_config(config)
+        self.dns_options = get_dns_options(config)
         self.zerossl = ZeroSSL(self.access_key)
-        self.coredns = CoreDNS.from_redis(
-            domain=self.coredns_domain,
-            host=self.coredns_redis_host,
-            port=self.coredns_redis_port,
-            password=self.coredns_redis_password
-        )
+
+        if ClientType.NAMECOM.value in self.dns_options:
+            client_type = ClientType.NAMECOM
+        elif ClientType.COREDNS.value in self.dns_options:
+            client_type = ClientType.COREDNS
+        else:
+            raise DnsConfigError("no dns client is configured (e.g namecom or coredns)")
+
+        self.dns = Client(client_type, self.domains, self.dns_options)
 
     def __enter__(self):
         return self
@@ -157,15 +205,6 @@ class CAhandler(object):
             names.append(item.split(":")[-1])
 
         return names
-
-    def check_domain(self, domain):
-        if self.coredns_domain.lower() not in domain.lower():
-            raise ValueError(f"{domain} is not managed by {self.coredns_domain}")
-
-    def create_dns_records(self, domain, points_to):
-        self.check_domain(domain)
-        subdomain = domain.replace(f".{self.coredns_domain}", "").lower()
-        self.coredns.register_cname_record(subdomain, points_to)
 
     def try_verify_domain(self, cert_id, trials=4):
         details = {}
@@ -206,8 +245,13 @@ class CAhandler(object):
         cert_bundle = None
         cert_raw = None
 
-        # get domains from csr
+        # get domains from csr and verify they're configured and we can create dns records for them
         domains = self.get_domain_names(csr)
+        for domain in domains:
+            try:
+                self.dns.verify(domain)
+            except DnsConfigError as config_error:
+                return f"configuration error: {config_error}", cert_bundle, cert_raw, None
 
         # create certificate (csr must be 2048-bit encrypted)
         try:
@@ -230,14 +274,21 @@ class CAhandler(object):
                 for domain, validations in all_validations.items():
                     # put dns records
                     try:
-                        self.create_dns_records(validations["cname_validation_p1"], validations["cname_validation_p2"])
+                        host, points_to = validations["cname_validation_p1"], validations["cname_validation_p2"]
+                        self.dns.create_cname_record(host, points_to)
                     except Exception as exc:
-                        error = f"error while registering dns records for {domain}: {exc}"
+                        error = f"error while registering dns records '{host} -> {points_to}' for {domain}: {exc}"
 
                 if not error:
                     # try verify the challenge
                     try:
                         self.try_verify_domain(cert_id)
+                        # cleanup cname records if ok
+                        for domain, validations in all_validations.items():
+                            try:
+                                self.dns.delete_cname_record(validations["cname_validation_p1"])
+                            except Exception as exc:
+                                error = f"error while dns records cleanup for {domain}: {exc}"
                     except Exception as exc:
                         error = f"could not verify the challenge for one of the domains: {exc}"
 
@@ -263,7 +314,7 @@ class CAhandler(object):
                     # convert to raw cert as needed by caller
                     cert_raw = convert_byte_to_string(base64.b64encode(crypto.dump_certificate(crypto.FILETYPE_ASN1, cert)))
 
-        return(error, cert_bundle, cert_raw, None)
+        return (error, cert_bundle, cert_raw, None)
 
 
     def poll(self, _cert_name, poll_identifier, _csr):
@@ -276,7 +327,7 @@ class CAhandler(object):
         rejected = False
 
         self.logger.debug('CAhandler.poll() ended')
-        return(error, cert_bundle, cert_raw, poll_identifier, rejected)
+        return (error, cert_bundle, cert_raw, poll_identifier, rejected)
 
     def revoke(self, cert, rev_reason='unspecified', rev_date=None):
         """ revoke certificate """
