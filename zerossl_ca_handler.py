@@ -151,6 +151,15 @@ def get_domain_config(config):
 
 
 def get_gateway_domains(logger=None):
+    """
+    get gateway domains with coredns as preferred client type
+
+    Args:
+        logger (Logger, optional): logger. Defaults to None.
+
+    Returns:
+        list of Domain
+    """
     domains_with_prefixes = {}
     for url in EXPLORER_URLS:
         gateways_url = f"{url}/api/v1/gateways"
@@ -170,7 +179,7 @@ def get_gateway_domains(logger=None):
                 if prefix not in domains_with_prefixes[main_domain]:
                     domains_with_prefixes[main_domain].append(prefix)
 
-    return [Domain(name, prefixes) for name, prefixes in domains_with_prefixes.items()]
+    return [Domain(name, prefixes, ClientType.COREDNS) for name, prefixes in domains_with_prefixes.items()]
 
 
 def get_dns_options(config):
@@ -192,6 +201,7 @@ def get_dns_options(config):
 
     return options
 
+
 class CAhandler(object):
     """ZeroSSL CA handler"""
 
@@ -208,19 +218,21 @@ class CAhandler(object):
 
         self.domains = get_domain_config(config)
         if self.include_gateway_domains:
-            self.domains += get_gateway_domains(self.logger)
+            self.domains += get_gateway_domains()
 
         self.dns_options = get_dns_options(config)
         self.zerossl = ZeroSSL(self.access_key)
 
+        client_types = []
         if ClientType.NAMECOM.value in self.dns_options:
-            client_type = ClientType.NAMECOM
-        elif ClientType.COREDNS.value in self.dns_options:
-            client_type = ClientType.COREDNS
-        else:
+            client_types.append(ClientType.NAMECOM)
+        if ClientType.COREDNS.value in self.dns_options:
+            client_types.append(ClientType.COREDNS)
+
+        if not client_types:
             raise DnsConfigError("no dns client is configured (e.g namecom or coredns)")
 
-        self.dns = Client(client_type, self.domains, self.dns_options)
+        self.dns = Client(client_types, self.domains, self.dns_options)
 
     def __enter__(self):
         return self
@@ -317,14 +329,15 @@ class CAhandler(object):
                     # try verify the challenge
                     try:
                         self.try_verify_domain(cert_id)
+                    except Exception as exc:
+                        error = f"could not verify the challenge for one of the domains: {exc}"
+                    finally:
                         # cleanup cname records if ok
                         for domain, validations in all_validations.items():
                             try:
                                 self.dns.delete_cname_record(validations["cname_validation_p1"])
                             except Exception as exc:
                                 error = f"error while dns records cleanup for {domain}: {exc}"
-                    except Exception as exc:
-                        error = f"could not verify the challenge for one of the domains: {exc}"
 
             if not error:
                 # now poll on the certificated until status change

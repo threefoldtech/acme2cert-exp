@@ -42,15 +42,16 @@ class CoreDNS:
         if not domain.endswith("."):
             domain += "."
 
-        return domain
+        return domain.lower()
 
     def _read_records(self, subdomain, domain):
+        subdomain = subdomain.lower()
         if self.redis.hexists(domain, subdomain):
             return json.loads(self.redis.hget(domain, subdomain))
         return {}
 
     def _write_records(self, subdomain, domain, data):
-        self.redis.hset(domain, subdomain, json.dumps(data))
+        self.redis.hset(domain, subdomain.lower(), json.dumps(data))
 
     def create(self, subdomain="", prefix="", record_type="a", records=None):
         """

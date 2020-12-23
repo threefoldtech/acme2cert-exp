@@ -18,9 +18,10 @@ CLIENTS = {
 
 class Domain:
 
-    def __init__(self, name, allowed_prefixes):
+    def __init__(self, name, allowed_prefixes, preferred_client_type=None):
         self.name = name
         self.allowed_prefixes = allowed_prefixes
+        self.preferred_client_type = preferred_client_type
 
     def __str__(self):
         return f"{self.__class__.__name__}(name='{self.name}', allowed_prefixes={self.allowed_prefixes})"
@@ -36,14 +37,10 @@ class Domain:
 
 class Client:
 
-    def __init__(self, client_type, domains: List[Domain], options):
-        self.client_type = client_type
+    def __init__(self, client_types, domains: List[Domain], options):
+        self.client_types = client_types
         self.domains = domains
-
         self.domain_clients = {}
-        for domain in self.domains:
-            self.domain_clients[domain] = CLIENTS[client_type](domain.name, options)
-
         self.options = options
 
     def is_same_zone(self, subdomain,  prefix):
@@ -68,8 +65,19 @@ class Client:
         raise DomainConfigError(f"main/parent domain of '{host}' is not configured")
 
     def select(self, host):
-       subdomain, prefix, domain = self.verify(host)
-       return subdomain, prefix, self.domain_clients[domain]
+        subdomain, prefix, domain = self.verify(host)
+        if domain in self.domain_clients:
+            return subdomain, prefix, self.domain_clients[domain]
+
+        if domain.preferred_client_type and domain.preferred_client_type.value in self.options:
+            client_type = CLIENTS[domain.preferred_client_type]
+        else:
+            # get default (first) client type
+            client_type = CLIENTS[self.client_types[0]]
+
+        client = client_type(domain.name, self.options)
+        self.domain_clients[domain] = client
+        return subdomain, prefix, client
 
     def create_cname_record(self, host, points_to):
         subdomain, prefix, client = self.select(host)
