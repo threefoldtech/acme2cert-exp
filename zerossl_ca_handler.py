@@ -173,8 +173,7 @@ def get_gateway_domains(logger=None):
 
         for gateway in gateways:
             for domain in gateway.get("managed_domains") or []:
-                parts = domain.split(".")
-                main_domain, prefix = ".".join(parts[-2:]), ".".join(parts[:-2])
+                main_domain, prefix = domain, ""
                 domains_with_prefixes.setdefault(main_domain, [])
                 if prefix not in domains_with_prefixes[main_domain]:
                     domains_with_prefixes[main_domain].append(prefix)
@@ -252,19 +251,21 @@ class CAhandler(object):
 
         return names
 
-    def try_verify_domain(self, cert_id, trials=4):
+    def try_verify_domain(self, cert_id, trials=6):
         details = {}
 
         while trials:
             result = self.zerossl.certificate.verify(cert_id, ChallengeType.DNS.value)
-            if not result.get("success", True):
-                # success is set to False, set error details value
-                if "details" in result:
-                    details = result["details"]
-                else:
-                    details = result["error"]
+            if "success" in result:
+                success = result["success"]
+                if not success:
+                    # success is set to False, set error details value
+                    if "details" in result:
+                        details = result["details"]
+                    else:
+                        details = result["error"]
 
-                trials -= 1
+                    trials -= 1
             else:
                 # return result, the cert object (as json)
                 return result
@@ -331,13 +332,6 @@ class CAhandler(object):
                         self.try_verify_domain(cert_id)
                     except Exception as exc:
                         error = f"could not verify the challenge for one of the domains: {exc}"
-                    finally:
-                        # cleanup cname records if ok
-                        for domain, validations in all_validations.items():
-                            try:
-                                self.dns.delete_cname_record(validations["cname_validation_p1"])
-                            except Exception as exc:
-                                error = f"error while dns records cleanup for {domain}: {exc}"
 
             if not error:
                 # now poll on the certificated until status change
@@ -345,6 +339,13 @@ class CAhandler(object):
                     self.poll_until_issued(cert_id)
                 except TimeoutError as timeout_error:
                     error = timeout_error
+                finally:
+                    # cleanup cname records if ok
+                    for domain, validations in all_validations.items():
+                        try:
+                            self.dns.delete_cname_record(validations["cname_validation_p1"])
+                        except Exception as exc:
+                            error = f"error while dns records cleanup for {domain}: {exc}"
 
                 if not error:
                     # download the cert and return it as following
