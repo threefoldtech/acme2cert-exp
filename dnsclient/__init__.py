@@ -44,7 +44,9 @@ class Client:
         self.options = options
 
     def is_same_zone(self, subdomain,  prefix):
-        return subdomain == prefix or subdomain.endswith(f".{prefix}")
+        if prefix:
+            prefix = f".{prefix}"
+        return subdomain == prefix or subdomain.endswith(prefix)
 
     def verify(self, host):
         for domain in self.domains:
