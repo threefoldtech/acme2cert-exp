@@ -217,7 +217,7 @@ class CAhandler(object):
 
         self.domains = get_domain_config(config)
         if self.include_gateway_domains:
-            self.domains += get_gateway_domains()
+            self.domains = get_gateway_domains() + self.domains
 
         self.dns_options = get_dns_options(config)
         self.zerossl = ZeroSSL(self.access_key)
@@ -240,16 +240,16 @@ class CAhandler(object):
         pass
 
     def get_domain_names(self, csr):
-        names = []
+        names = set()
 
         cn = csr_cn_get(self.logger, csr)
         if cn:
-            names.append(cn)
+            names.add(cn)
 
         for item in csr_san_get(self.logger, csr):
-            names.append(item.split(":")[-1])
+            names.add(item.split(":")[-1])
 
-        return names
+        return list(names)
 
     def try_verify_domain(self, cert_id, trials=6):
         details = {}
