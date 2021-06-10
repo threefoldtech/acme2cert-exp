@@ -25,4 +25,5 @@ urlpatterns = [
 	url(r'^get_servername$', views.servername_get, name='servername_get'),
 	url(r'^trigger$', views.trigger, name='trigger'),
     url(r'^acme/', include('app.urls')),
+    url(r'^api/', include('api.urls')),
 ]

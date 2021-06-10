@@ -20,18 +20,22 @@ class RedisFactory(Factory):
         return redis.Redis(host, port, password=password)
 
 
+redis_factory = RedisFactory()
+
+
+def get_redis(options):
+    host = options.get("host", DEFAULT_REDIS_HOST)
+    port = options.get("port", DEFAULT_REDIS_PORT)
+    password = options.get("password", DEFAULT_REDIS_PASSWORD)
+    return redis_factory.get(host, port, password)
+
+
 class CoreDNS:
-    redis_factory = RedisFactory()
-
-
     def __init__(self, domain, options):
         self.domain = domain.strip()
 
         options = options.get("coredns", {})
-        host = options.get("host", DEFAULT_REDIS_HOST)
-        port = options.get("port", DEFAULT_REDIS_PORT)
-        password = options.get("password", DEFAULT_REDIS_PASSWORD)
-        self.redis = self.redis_factory.get(host, port, password)
+        self.redis = get_redis(options)
 
     def _get_domain(self, prefix):
         if prefix:

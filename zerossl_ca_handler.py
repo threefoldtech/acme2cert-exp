@@ -18,6 +18,7 @@ from cryptography.x509 import load_pem_x509_certificate
 
 from acme.helper import convert_byte_to_string, convert_string_to_byte, csr_cn_get, csr_san_get, load_config
 from dnsclient import Client, ClientType, Domain, DnsConfigError
+from dnsclient.coredns import get_redis
 
 
 EXPLORER_URLS = [
@@ -25,6 +26,9 @@ EXPLORER_URLS = [
     "https://explorer.testnet.grid.tf",
     "https://explorer.devnet.grid.tf"
 ]
+
+
+PREFETCHED_CERTS = {}
 
 
 class ChallengeType(Enum):
@@ -200,6 +204,27 @@ def get_dns_options(config):
 
     return options
 
+# for later
+class PrefetchingCache:
+    def __init__(self, options):
+        self.redis = get_redis(options)
+        self.expiration = 10 * 60 * 60
+
+    def set(self, domains, bundle, raw):
+        key = str(domains)
+        value = json.dumps({
+            "bundle": bundle,
+            "raw": raw,
+        })
+        self.redis.set(key, value, ex=self.expiration)
+
+    def get(self, domains):
+        key = str(domains)
+        value = self.redis.get(key)
+        if not value:
+            raise ValueError(f"invalid or expired key for '{key}'")
+        return json.loads(value)
+
 
 class CAhandler(object):
     """ZeroSSL CA handler"""
@@ -284,6 +309,11 @@ class CAhandler(object):
 
         raise TimeoutError(f"timeout ({timeout}s) while waiting for certificate to be issued")
 
+    def get_prefetched(self, domains):
+        domains = tuple(sorted(domains))
+        if domains in PREFETCHED_CERTS:
+            return PREFETCHED_CERTS.pop(domains)
+
     def enroll(self, csr):
         """ enroll certificate """
         self.logger.debug('CAhandler.enroll()')
@@ -299,6 +329,11 @@ class CAhandler(object):
                 self.dns.verify(domain)
             except DnsConfigError as config_error:
                 return f"configuration error: {config_error}", cert_bundle, cert_raw, None
+
+        prefetched = self.get_prefetched(domains)
+        if prefetched:
+            bundle, raw = prefetched
+            return error, bundle, raw, None
 
         # create certificate (csr must be 2048-bit encrypted)
         try:
@@ -364,6 +399,15 @@ class CAhandler(object):
 
         return (error, cert_bundle, cert_raw, None)
 
+    def prefetch(self, domains, csr):
+        error, bundle, raw, poll_id = self.enroll(csr)
+        if error is None:
+            domains = tuple(sorted(domains))
+            # don't store, use PrefetchedCache (but later)
+            # PREFETCHED_CERTS[domains] = (bundle, raw)
+            return bundle, raw
+        else:
+            raise RuntimeError(error)
 
     def poll(self, _cert_name, poll_identifier, _csr):
         """ poll status of pending CSR and download certificates """

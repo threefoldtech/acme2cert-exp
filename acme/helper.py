@@ -77,6 +77,12 @@ def b64_url_recode(logger, string):
         result = unicode(string).translate(dict(zip(map(ord, u'-_'), u'+/')))
     return result
 
+
+def convert_asn1_to_pem(cert_raw):
+    cert = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_ASN1, cert_raw)
+    return OpenSSL.crypto.dump_certificate(OpenSSL.crypto.FILETYPE_PEM, cert)
+
+
 def build_pem_file(logger, existing, certificate, wrap, csr=False):
     """ construct pem_file """
     logger.debug('build_pem_file()')
