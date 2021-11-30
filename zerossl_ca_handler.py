@@ -24,7 +24,8 @@ from dnsclient.coredns import get_redis
 EXPLORER_URLS = [
     "https://explorer.grid.tf",
     "https://explorer.testnet.grid.tf",
-    "https://explorer.devnet.grid.tf"
+    # no dev net explorer anymore
+    # "https://explorer.devnet.grid.tf"
 ]
 
 
@@ -47,7 +48,6 @@ class CertificateStatus(Enum):
 
 
 class Certificate:
-
     def __init__(self, zerossl):
         self.zerossl = zerossl
         self.base_url = f"{self.zerossl.BASE_URL}/certificates"
@@ -60,11 +60,10 @@ class Certificate:
         if isinstance(domains, (list, tuple)):
             domains = ",".join(domains)
 
-        return self.zerossl.post(self.base_url, {
-            "certificate_domains": domains,
-            "certificate_validity_days": validity_days,
-            "certificate_csr": csr,
-        })
+        return self.zerossl.post(
+            self.base_url,
+            {"certificate_domains": domains, "certificate_validity_days": validity_days, "certificate_csr": csr,},
+        )
 
     def verify(self, cert_id, challenge_type, email=None):
         url = f"{self.base_url}/{cert_id}/challenges"
@@ -72,9 +71,7 @@ class Certificate:
         if isinstance(challenge_type, ChallengeType):
             challenge_type = challenge_type.value
 
-        data = {
-            "validation_method": challenge_type
-        }
+        data = {"validation_method": challenge_type}
 
         if challenge_type == ChallengeType.EMAIL:
             if not email:
@@ -108,13 +105,7 @@ class ZeroSSL:
         self.certificate = Certificate(self)
 
     def request(self, url, method, data=None, json=None):
-        resp = requests.request(
-            url=url,
-            method=method,
-            params={"access_key": self.access_key},
-            data=data,
-            json=json
-        )
+        resp = requests.request(url=url, method=method, params={"access_key": self.access_key}, data=data, json=json)
 
         # FIXME: zerossl rest api return 200 too with an error object
         # need to handle this and raise ZeroSSLError in such case
@@ -204,6 +195,7 @@ def get_dns_options(config):
 
     return options
 
+
 # for later
 class PrefetchingCache:
     def __init__(self, options):
@@ -212,10 +204,7 @@ class PrefetchingCache:
 
     def set(self, domains, bundle, raw):
         key = str(domains)
-        value = json.dumps({
-            "bundle": bundle,
-            "raw": raw,
-        })
+        value = json.dumps({"bundle": bundle, "raw": raw,})
         self.redis.set(key, value, ex=self.expiration)
 
     def get(self, domains):
@@ -235,7 +224,7 @@ class CAhandler(object):
 
         config = load_config(self.logger)
 
-        handler_config = config['CAhandler']
+        handler_config = config["CAhandler"]
         self.certificate_validity_days = handler_config.get("cert_validity_days")
         self.access_key = handler_config.get("access_key")
         self.include_gateway_domains = handler_config.getboolean("include_gateway_domains", False)
@@ -316,7 +305,7 @@ class CAhandler(object):
 
     def enroll(self, csr):
         """ enroll certificate """
-        self.logger.debug('CAhandler.enroll()')
+        self.logger.debug("CAhandler.enroll()")
 
         error = None
         cert_bundle = None
@@ -395,7 +384,9 @@ class CAhandler(object):
                     # cert as OpenSSL.crypto.X509
                     cert = crypto.X509.from_cryptography(load_pem_x509_certificate(convert_string_to_byte(cert_pem)))
                     # convert to raw cert as needed by caller
-                    cert_raw = convert_byte_to_string(base64.b64encode(crypto.dump_certificate(crypto.FILETYPE_ASN1, cert)))
+                    cert_raw = convert_byte_to_string(
+                        base64.b64encode(crypto.dump_certificate(crypto.FILETYPE_ASN1, cert))
+                    )
 
         return (error, cert_bundle, cert_raw, None)
 
@@ -411,36 +402,36 @@ class CAhandler(object):
 
     def poll(self, _cert_name, poll_identifier, _csr):
         """ poll status of pending CSR and download certificates """
-        self.logger.debug('CAhandler.poll()')
+        self.logger.debug("CAhandler.poll()")
 
-        error = 'Method not implemented.'
+        error = "Method not implemented."
         cert_bundle = None
         cert_raw = None
         rejected = False
 
-        self.logger.debug('CAhandler.poll() ended')
+        self.logger.debug("CAhandler.poll() ended")
         return (error, cert_bundle, cert_raw, poll_identifier, rejected)
 
-    def revoke(self, cert, rev_reason='unspecified', rev_date=None):
+    def revoke(self, cert, rev_reason="unspecified", rev_date=None):
         """ revoke certificate """
         # for revocation, we need to have the zerossl certificate id (need to be stored in enrollment)
         # ...
-        self.logger.debug('CAhandler.revoke()')
+        self.logger.debug("CAhandler.revoke()")
 
-        error = 'Method not implemented.'
+        error = "Method not implemented."
         cert_bundle = None
         cert_raw = None
 
-        self.logger.debug('CAhandler.revoke() ended with error: {0}'.format(error))
+        self.logger.debug("CAhandler.revoke() ended with error: {0}".format(error))
         return (error, cert_bundle, cert_raw)
 
     def trigger(self, _payload):
         """ process trigger message and return certificate """
-        self.logger.debug('CAhandler.trigger()')
+        self.logger.debug("CAhandler.trigger()")
 
-        error = 'Method not implemented.'
+        error = "Method not implemented."
         cert_bundle = None
         cert_raw = None
 
-        self.logger.debug('CAhandler.trigger() ended with error: {0}'.format(error))
+        self.logger.debug("CAhandler.trigger() ended with error: {0}".format(error))
         return (error, cert_bundle, cert_raw)
