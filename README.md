@@ -109,7 +109,7 @@ Sections:
 * `namecom` (required): name.com API credentials
 * `redis` (optional): redis redis configuration for caching of prefetched certs
 
-`namecom` must be configured in order to verify domains for now.
+`namecom` must be configured in order to verify domains for now. Note that the IP of the server must be whitelisted in at name.com side to use the configured credentials.
 
 If `dev` flag is used with `namecom`, it will use [development api endpoints](https://www.name.com/api-docs).
 
