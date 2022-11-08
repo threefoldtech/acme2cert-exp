@@ -5,7 +5,6 @@
   - [Installation](#installation)
   - [Running the development server](#running-the-development-server)
   - [Configuring the server](#configuring-the-server)
-  - [Building and configuration of CoreDNS](#building-and-configuration-of-coredns)
   - [Deployment](#deployment)
     - [Django settings](#django-settings)
     - [Gunicorn and nginx](#gunicorn-and-nginx)
@@ -21,7 +20,7 @@ This server will enable normal ACME clients to issue certificates from non-acme 
 
 ## Setup
 
-Because ACME and ZeroSSL.com require domain verification, a custom setup need to be set with a name server (CoreDNS or name.com API).
+Because ACME and ZeroSSL.com require domain verification, a custom setup need to be set with a name server (name.com API).
 
 ![diagram](diagram/block.png)
 
@@ -41,18 +40,13 @@ The full **flow** is as follows:
 
 1 - [Name server](#nameserver): zerossl.com needs to verify domains, we need access to name server where we can register required DNS records.
 
-The following options are available:
+The following options are available for now:
 
 * name.com
-* [coredns](#building-and-configuration-of-coredns) with ns records points to it, for example for verifying domains under `3bots.example.com`, we setup the following records
-  * `A`: ns1-3bots.example.com
-  * `NS`: 3bots.example.com -> ns1-3bots.example.com
-
-  The same goal can be achived by configuring another `CoreDNS` which manages this domain to forward `CNAME` requests to this server.
 
 2 - [This ACME server configured with](#configuring-the-server):
   * Current domains and prefixes
-  * name.com or coredns client configurations
+  * name.com client configurations
   * ZeroSSL access key
 
 ## Installation
@@ -104,7 +98,7 @@ gateway.tf: gw1, gw2, gw3
 username: foo
 token: bar
 
-[coredns]
+[redis]
 host: localhost
 port: 6379
 ```
@@ -112,43 +106,14 @@ port: 6379
 Sections:
 * `domains` (required): allowed domains and prefixes (hosts) (comma separated).
   * For example, `grid.tf: test1, test2` will allow issuing certificate for subdomains of `test1.grid.tf` and `test2.grid.tf`, e.g. `a.test1.grid.tf`, `xyz.test2.grid.tf`.
-* `namecom` (optional): name.com API credentials
-* `coredns` (optional): coredns redis configuration (will be ignored if `namecom` is configured)
+* `namecom` (required): name.com API credentials
+* `redis` (optional): redis redis configuration for caching of prefetched certs
 
-Either `namecom` or `coredns` must be configured in order to verify domains.
+`namecom` must be configured in order to verify domains for now.
 
 If `dev` flag is used with `namecom`, it will use [development api endpoints](https://www.name.com/api-docs).
 
 See [acme_srv_zerossl.cf](/config/acme_srv.zerossl.cfg) for full configuration example.
-
-## Building and configuration of CoreDNS
-
-To build CoreDNS with redis plugin:
-
-```bash
-git clone https://github.com/coredns/coredns
-cd coredns
-echo 'redis:github.com/xmonader/coredns-redis' >> plugin.cfg
-make
-chmod +x coredns
-```
-
-An example configuration (Corefile), make sure it points to the redis host/port as the ACME server [configuration](#configuring-the-server):
-
-```conf
- . {
-    redis {
-        address 127.0.0.1:6379
-    }
-    log
-    errors
-
-    forward . 8.8.8.8 1.1.1.1 {
-        except 3bots.grid.tf
-    }
-
-}
-```
 
 ## Deployment
 
@@ -174,7 +139,7 @@ Also, `gunicorn` should run behind nginx, see [deploying gunicorn](https://docs.
 
 ### Docker
 
-We will try to create a full docker setup for this server, database engine, `coredns` and `redis`.
+We will try to create a full docker setup for this server, database engine and `redis`.
 
 ## Testing with certbot (client)
 

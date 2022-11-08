@@ -4,19 +4,19 @@ from unittest import TestCase
 from dnsclient import Client, ClientType, Domain, DomainConfigError, PrefixIsNotAllowed
 
 
-
 TEST_DOMAINS = [
     Domain("grid.tf", allowed_prefixes=["test", "test.devnet", "test.testnet"]),
-    Domain("3bot.tf", allowed_prefixes=["test", "test.devnet", "test.testnet"])
+    Domain("3bot.tf", allowed_prefixes=["test", "test.devnet", "test.testnet"]),
 ]
 
 
-TEST_OPTIONS_COREDNS = {"coredns": {}}
-TEST_OPTIONS_NAMECOM = {"namecom": {"username": environ.get("NAMECOM_USERNAME"), "token": environ.get("NAMECOM_TOKEN"), "debug": True}}
+TEST_OPTIONS_NAMECOM = {
+    "namecom": {"username": environ.get("NAMECOM_USERNAME"), "token": environ.get("NAMECOM_TOKEN"), "debug": True}
+}
 TEST_SUBDOMAINS = ["a", "b", "c"]
 
-class DNSClientMixin:
 
+class DNSClientMixin:
     def test_register_domain(self):
         # test domain checking
         with self.assertRaises(DomainConfigError):
@@ -47,12 +47,7 @@ class DNSClientMixin:
                     host = f"{subdomain}.{prefix}.{domain.name}"
                     self.client.delete_cname_record(host)
 
-class TestCoreDNS(DNSClientMixin, TestCase):
-
-    def setUp(self):
-        self.client = Client(ClientType.COREDNS, domains=TEST_DOMAINS, options=TEST_OPTIONS_COREDNS)
 
 class TestNameCom(DNSClientMixin, TestCase):
     def setUp(self):
         self.client = Client(ClientType.NAMECOM, domains=TEST_DOMAINS, options=TEST_OPTIONS_NAMECOM)
-

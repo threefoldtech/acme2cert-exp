@@ -1,10 +1,9 @@
 """
 handler for an zerossl rest api as ca
 
-for now, it supports validation via CNAME records registered via coredns redis interface
+for now, it supports validation via CNAME records registered via configured dns client
 """
 
-import os
 import json
 import base64
 import uuid
@@ -16,18 +15,16 @@ from enum import Enum
 from OpenSSL import crypto
 from cryptography.x509 import load_pem_x509_certificate
 
-from acme.helper import convert_byte_to_string, convert_string_to_byte, csr_cn_get, csr_san_get, load_config
-from dnsclient import Client, ClientType, Domain, DnsConfigError
-from dnsclient.coredns import get_redis
-
-
-EXPLORER_URLS = [
-    "https://explorer.grid.tf",
-    "https://explorer.testnet.grid.tf",
-    # no dev net explorer anymore
-    # "https://explorer.devnet.grid.tf"
-]
-
+from acme.helper import (
+    convert_byte_to_string,
+    convert_string_to_byte,
+    csr_cn_get,
+    csr_san_get,
+    load_config,
+)
+from dnsclient import Client, ClientType, Domain
+from dnsclient.exceptions import DnsConfigError
+from dnsclient.helpers import get_redis_connection, get_redis_pool
 
 PREFETCHED_CERTS = {}
 
@@ -62,7 +59,11 @@ class Certificate:
 
         return self.zerossl.post(
             self.base_url,
-            {"certificate_domains": domains, "certificate_validity_days": validity_days, "certificate_csr": csr,},
+            {
+                "certificate_domains": domains,
+                "certificate_validity_days": validity_days,
+                "certificate_csr": csr,
+            },
         )
 
     def verify(self, cert_id, challenge_type, email=None):
@@ -105,7 +106,13 @@ class ZeroSSL:
         self.certificate = Certificate(self)
 
     def request(self, url, method, data=None, json=None):
-        resp = requests.request(url=url, method=method, params={"access_key": self.access_key}, data=data, json=json)
+        resp = requests.request(
+            url=url,
+            method=method,
+            params={"access_key": self.access_key},
+            data=data,
+            json=json,
+        )
 
         # FIXME: zerossl rest api return 200 too with an error object
         # need to handle this and raise ZeroSSLError in such case
@@ -145,40 +152,9 @@ def get_domain_config(config):
     return domains
 
 
-def get_gateway_domains(logger=None):
-    """
-    get gateway domains with coredns as preferred client type
-
-    Args:
-        logger (Logger, optional): logger. Defaults to None.
-
-    Returns:
-        list of Domain
-    """
-    domains_with_prefixes = {}
-    for url in EXPLORER_URLS:
-        gateways_url = f"{url}/api/v1/gateways"
-
-        try:
-            gateways = requests.get(gateways_url).json()
-        except requests.HTTPError:
-            if logger:
-                logger.error(f"cannot get gateway information at #{gateway_url}")
-            gateways = []
-
-        for gateway in gateways:
-            for domain in gateway.get("managed_domains") or []:
-                main_domain, prefix = domain, ""
-                domains_with_prefixes.setdefault(main_domain, [])
-                if prefix not in domains_with_prefixes[main_domain]:
-                    domains_with_prefixes[main_domain].append(prefix)
-
-    return [Domain(name, prefixes, ClientType.COREDNS) for name, prefixes in domains_with_prefixes.items()]
-
-
 def get_dns_options(config):
     """
-    get dns options for suppored dns clients (e.g. coredns or namecom)
+    get dns options for suppored dns clients (e.g. namecom)
 
     Args:
         config (ConfigParser): config parser
@@ -199,12 +175,21 @@ def get_dns_options(config):
 # for later
 class PrefetchingCache:
     def __init__(self, options):
-        self.redis = get_redis(options)
+        self.pool = get_redis_pool(options)
         self.expiration = 10 * 60 * 60
+
+    @property
+    def redis(self):
+        return get_redis_connection(self.pool)
 
     def set(self, domains, bundle, raw):
         key = str(domains)
-        value = json.dumps({"bundle": bundle, "raw": raw,})
+        value = json.dumps(
+            {
+                "bundle": bundle,
+                "raw": raw,
+            }
+        )
         self.redis.set(key, value, ex=self.expiration)
 
     def get(self, domains):
@@ -227,23 +212,24 @@ class CAhandler(object):
         handler_config = config["CAhandler"]
         self.certificate_validity_days = handler_config.get("cert_validity_days")
         self.access_key = handler_config.get("access_key")
-        self.include_gateway_domains = handler_config.getboolean("include_gateway_domains", False)
 
         self.domains = get_domain_config(config)
-        if self.include_gateway_domains:
-            self.domains = get_gateway_domains() + self.domains
-
         self.dns_options = get_dns_options(config)
         self.zerossl = ZeroSSL(self.access_key)
+
+        try:
+            redis_config = config["redis"]
+        except KeyError:
+            redis_config = {}
+
+        self.cache = PrefetchingCache(redis_config)
 
         client_types = []
         if ClientType.NAMECOM.value in self.dns_options:
             client_types.append(ClientType.NAMECOM)
-        if ClientType.COREDNS.value in self.dns_options:
-            client_types.append(ClientType.COREDNS)
 
         if not client_types:
-            raise DnsConfigError("no dns client is configured (e.g namecom or coredns)")
+            raise DnsConfigError("no dns client is configured (e.g namecom)")
 
         self.dns = Client(client_types, self.domains, self.dns_options)
 
@@ -300,11 +286,13 @@ class CAhandler(object):
 
     def get_prefetched(self, domains):
         domains = tuple(sorted(domains))
-        if domains in PREFETCHED_CERTS:
-            return PREFETCHED_CERTS.pop(domains)
+        try:
+            return self.cache.get(domains)
+        except ValueError:
+            pass
 
     def enroll(self, csr):
-        """ enroll certificate """
+        """enroll certificate"""
         self.logger.debug("CAhandler.enroll()")
 
         error = None
@@ -317,11 +305,16 @@ class CAhandler(object):
             try:
                 self.dns.verify(domain)
             except DnsConfigError as config_error:
-                return f"configuration error: {config_error}", cert_bundle, cert_raw, None
+                return (
+                    f"configuration error: {config_error}",
+                    cert_bundle,
+                    cert_raw,
+                    None,
+                )
 
         prefetched = self.get_prefetched(domains)
         if prefetched:
-            bundle, raw = prefetched
+            bundle, raw = prefetched["bundle"], prefetched["raw"]
             return error, bundle, raw, None
 
         # create certificate (csr must be 2048-bit encrypted)
@@ -345,7 +338,10 @@ class CAhandler(object):
                 for domain, validations in all_validations.items():
                     # put dns records
                     try:
-                        host, points_to = validations["cname_validation_p1"], validations["cname_validation_p2"]
+                        host, points_to = (
+                            validations["cname_validation_p1"],
+                            validations["cname_validation_p2"],
+                        )
                         self.dns.create_cname_record(host, points_to)
                     except Exception as exc:
                         error = f"error while registering dns records '{host} -> {points_to}' for {domain}: {exc}"
@@ -391,17 +387,15 @@ class CAhandler(object):
         return (error, cert_bundle, cert_raw, None)
 
     def prefetch(self, domains, csr):
-        error, bundle, raw, poll_id = self.enroll(csr)
+        error, bundle, raw, _ = self.enroll(csr)
         if error is None:
             domains = tuple(sorted(domains))
-            # don't store, use PrefetchedCache (but later)
-            # PREFETCHED_CERTS[domains] = (bundle, raw)
+            self.cache.set(domains, bundle, raw)
             return bundle, raw
-        else:
-            raise RuntimeError(error)
+        raise RuntimeError(error)
 
     def poll(self, _cert_name, poll_identifier, _csr):
-        """ poll status of pending CSR and download certificates """
+        """poll status of pending CSR and download certificates"""
         self.logger.debug("CAhandler.poll()")
 
         error = "Method not implemented."
@@ -413,7 +407,7 @@ class CAhandler(object):
         return (error, cert_bundle, cert_raw, poll_identifier, rejected)
 
     def revoke(self, cert, rev_reason="unspecified", rev_date=None):
-        """ revoke certificate """
+        """revoke certificate"""
         # for revocation, we need to have the zerossl certificate id (need to be stored in enrollment)
         # ...
         self.logger.debug("CAhandler.revoke()")
@@ -426,7 +420,7 @@ class CAhandler(object):
         return (error, cert_bundle, cert_raw)
 
     def trigger(self, _payload):
-        """ process trigger message and return certificate """
+        """process trigger message and return certificate"""
         self.logger.debug("CAhandler.trigger()")
 
         error = "Method not implemented."

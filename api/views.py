@@ -1,29 +1,20 @@
 import base64
 import json
 
-from django.http import HttpResponse
 from django.http import JsonResponse
-from acme.authorization import Authorization
-from acme.account import Account
-from acme.certificate import Certificate
-from acme.challenge import Challenge
-from acme.directory import Directory
 from acme.helper import convert_asn1_to_pem, load_config, logger_setup
-from acme.housekeeping import Housekeeping
-from acme.nonce import Nonce
-from acme.order import Order
-from acme.trigger import Trigger
-from acme.version import __version__
 
 from csr import make_key, make_csr
 from zerossl_ca_handler import CAhandler
 
 
 HEADER_NAME = "X-API-KEY"
-METHOD_NOT_ALLOWED = JsonResponse(status=400, data={"status":405, "message": "Method Not Allowed', 'detail': 'Wrong request type. Expected HEAD."})
+METHOD_NOT_ALLOWED = JsonResponse(
+    status=400, data={"status": 405, "message": "Method Not Allowed', 'detail': 'Wrong request type. Expected HEAD."}
+)
 
 CONFIG = load_config()
-DEBUG = CONFIG.getboolean('DEFAULT', 'debug', fallback=False)
+DEBUG = CONFIG.getboolean("DEFAULT", "debug", fallback=False)
 # initialize logger
 LOGGER = logger_setup(DEBUG)
 
@@ -32,10 +23,7 @@ KEY_SIZE = 2048
 
 
 def format_response(code, message):
-    return JsonResponse(status=code, data={
-        "status": code,
-        "message": message
-    })
+    return JsonResponse(status=code, data={"status": code, "message": message})
 
 
 def verify(request):
@@ -83,11 +71,14 @@ def prefetch(request):
         except RuntimeError as e:
             return format_response(400, str(e))
 
-        return JsonResponse(status=200, data={
-            "private_key": key.decode(),
-            "fullchain": bundle,
-            "cert": convert_asn1_to_pem(base64.b64decode(raw)).decode(),
-            "csr": encoded_csr.decode(),
-        })
+        return JsonResponse(
+            status=200,
+            data={
+                "private_key": key.decode(),
+                "fullchain": bundle,
+                "cert": convert_asn1_to_pem(base64.b64decode(raw)).decode(),
+                "csr": encoded_csr.decode(),
+            },
+        )
     else:
         return METHOD_NOT_ALLOWED
