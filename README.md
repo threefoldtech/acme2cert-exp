@@ -61,7 +61,7 @@ pip install -r requirements.txt
 Then run this only once:
 
 ```
-python3 django_update.py
+python django_update.py
 ```
 
 ## Running the development server
@@ -75,7 +75,7 @@ cp config/acme_srv.zerossl.cfg acme/acme_srv.cfg
 Then update it with [correct configuration](#configuring-the-server) and start the development server as:
 
 ```bash
-python3 manage.py runserver
+python manage.py runserver
 ```
 
 ## Configuring the server
@@ -109,7 +109,7 @@ Sections:
 * `namecom` (required): name.com API credentials
 * `redis` (optional): redis redis configuration for caching of prefetched certs
 
-`namecom` must be configured in order to verify domains for now.
+`namecom` must be configured in order to verify domains for now. Note that the IP of the server must be whitelisted in at name.com side to use the configured credentials.
 
 If `dev` flag is used with `namecom`, it will use [development api endpoints](https://www.name.com/api-docs).
 
@@ -132,6 +132,7 @@ export DJANGO_SETTINGS_MODULE=acme2certifier.production_settings
 It's better to use [gunicorn](https://docs.gunicorn.org/) to run the server for production environments, with other options, you just need to pass the `wsgi` app as:
 
 ```bash
+source .venv/bin/activate # activate the environment first
 gunicorn acme2certifier.wsgi #...other options
 ```
 
