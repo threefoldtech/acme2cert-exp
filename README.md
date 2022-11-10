@@ -61,7 +61,7 @@ pip install -r requirements.txt
 Then run this only once:
 
 ```
-python3 django_update.py
+python django_update.py
 ```
 
 ## Running the development server
@@ -75,7 +75,7 @@ cp config/acme_srv.zerossl.cfg acme/acme_srv.cfg
 Then update it with [correct configuration](#configuring-the-server) and start the development server as:
 
 ```bash
-python3 manage.py runserver
+python manage.py runserver
 ```
 
 ## Configuring the server
@@ -132,6 +132,7 @@ export DJANGO_SETTINGS_MODULE=acme2certifier.production_settings
 It's better to use [gunicorn](https://docs.gunicorn.org/) to run the server for production environments, with other options, you just need to pass the `wsgi` app as:
 
 ```bash
+source .venv/bin/activate # activate the environment first
 gunicorn acme2certifier.wsgi #...other options
 ```
 
