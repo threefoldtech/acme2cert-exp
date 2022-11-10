@@ -4,7 +4,7 @@
 
 ### Deploy a VM with a public IP
 
-- whitelist the IP in [name.com](https://www.name.com/account/settings/api) 
+- whitelist the IP in [name.com](https://www.name.com/account/settings/api)
 
 ### You need a DNS to serve the CA
 
@@ -26,7 +26,7 @@ pip install -r requirements.txt
 
 - Server is configured by `acme_srv.cfg` configuration file in the [acme](/acme) directory,
 before starting, check current example files at [config](/config) directory,
-update it with [correct configuration](README.md#configuring-the-server),
+update it with [correct configuration](/README.md#configuring-the-server),
 then you can copy any of them:
 
 ```bash
@@ -36,7 +36,7 @@ cp config/acme_srv.zerossl.cfg acme/acme_srv.cfg
 - Then run this only once:
 
 ```bash
-python3 django_update.py
+python django_update.py
 ```
 
 - Then run:
