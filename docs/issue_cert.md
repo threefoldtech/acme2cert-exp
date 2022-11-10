@@ -54,7 +54,7 @@ caddy reverse-proxy --from ca2.grid.tf --to :8000
 
 - Browse `https://ca2.grid.tf`, You should see something like:
 
-![ ](diagram/browse_server.png)
+![ ](../diagram/browse_server.png)
 
 Now we have our CA running on `https://ca2.grid.tf` 🎉
 
