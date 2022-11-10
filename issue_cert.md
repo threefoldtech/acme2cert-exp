@@ -4,7 +4,7 @@
 
 ### Deploy a VM with a public IP
 
-- whitelist the IP in <https://name.com>
+- whitelist the IP in [name.com](https://www.name.com/account/settings/api) 
 
 ### You need a DNS to serve the CA
 
