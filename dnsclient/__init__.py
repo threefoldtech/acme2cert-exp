@@ -1,23 +1,20 @@
 from enum import Enum
 from typing import List
 
-from .coredns import CoreDNS
 from .name import NameComClient
-from .exceptions import DnsConfigError, DomainConfigError, PrefixIsNotAllowed
+from .exceptions import DomainConfigError, PrefixIsNotAllowed
+
 
 class ClientType(Enum):
-    COREDNS = "coredns"
     NAMECOM = "namecom"
 
 
 CLIENTS = {
-    ClientType.COREDNS: CoreDNS,
     ClientType.NAMECOM: NameComClient,
 }
 
 
 class Domain:
-
     def __init__(self, name, allowed_prefixes, preferred_client_type=None):
         self.name = name
         self.allowed_prefixes = allowed_prefixes
@@ -36,14 +33,13 @@ class Domain:
 
 
 class Client:
-
     def __init__(self, client_types, domains: List[Domain], options):
         self.client_types = client_types
         self.domains = domains
         self.domain_clients = {}
         self.options = options
 
-    def is_same_zone(self, subdomain,  prefix):
+    def is_same_zone(self, subdomain, prefix):
         if not prefix:
             return True
         return subdomain == prefix or subdomain.endswith(prefix)
